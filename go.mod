@@ -1,4 +1,4 @@
-module github.com/riandyrn/desktop-cat-go
+module github.com/riandyrn/desktop-kitty
 
 go 1.19
 

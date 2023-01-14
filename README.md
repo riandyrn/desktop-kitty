@@ -1,4 +1,4 @@
-# Desktop Cat Go
+# Desktop Kitty
 
 ![Kitty](idling.gif)
 
