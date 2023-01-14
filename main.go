@@ -137,7 +137,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (g *Game) handleExitIfNecessary(cursorPos Point) {
 	// check if the cursor position is above exit button
 	isAboveButton := g.isCursorAboveExitButton(cursorPos)
-	if isAboveButton && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	if isAboveButton && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		// when the cursor is above exit button & user click it, this means user
 		// want to exit the program, so we do it.
 		os.Exit(0)
