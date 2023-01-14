@@ -109,7 +109,7 @@ func (g *Game) Update() error {
 	cursorX, cursorY := ebiten.CursorPosition()
 	cursorPos := Point{X: cursorX, Y: cursorY}
 	// update animation
-	g.currImgIdx = (g.currImgIdx + 1) % 400
+	g.currImgIdx = (g.currImgIdx + 1) % 500
 	// check whether user click the exit button
 	g.handleExitIfNecessary(cursorPos)
 	// update window position
@@ -122,7 +122,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// set window position according to calculation
 	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
 	// draw character image
-	imgIdx := (g.currImgIdx / 20) % len(g.images)
+	imgIdx := (g.currImgIdx / 25) % len(g.images)
 	screen.DrawImage(&g.images[imgIdx], nil)
 	// draw exit button, we want to position it on top right
 	opt := &ebiten.DrawImageOptions{}
