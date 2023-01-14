@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	_ "image/png"
 
@@ -26,7 +27,11 @@ func main() {
 			"assets/idle3.png",
 			"assets/idle4.png",
 		},
-		ScreenDimension: Dimension{Width: screenWidth, Height: screenHeight},
+		ExitButtonImagePath: "assets/close.png",
+		ScreenDimension: Dimension{
+			Width:  screenWidth,
+			Height: screenHeight,
+		},
 	})
 	if err != nil {
 		log.Fatalf("unable to initialize game due: %v", err)
@@ -52,6 +57,11 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		}
 		images = append(images, *img)
 	}
+	// load exit button image
+	exitButtonImage, _, err := ebitenutil.NewImageFromFile(cfg.ExitButtonImagePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load exit button image due: %w", err)
+	}
 	// adjust window properties
 	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
 	ebiten.SetWindowDecorated(false)
@@ -66,16 +76,19 @@ func NewGame(cfg GameConfig) (*Game, error) {
 
 	// initialize game
 	g := &Game{
-		images:    images,
-		windowPos: windowPos,
+		images:          images,
+		exitButtonImage: exitButtonImage,
+		windowPos:       windowPos,
+		screenDimension: cfg.ScreenDimension,
 	}
 
 	return g, nil
 }
 
 type GameConfig struct {
-	ImagePaths      []string  `validate:"min=1"`
-	ScreenDimension Dimension `validate:"nonzero"`
+	ImagePaths          []string  `validate:"min=1"`
+	ExitButtonImagePath string    `validate:"min=1"`
+	ScreenDimension     Dimension `validate:"nonzero"`
 }
 
 func (c GameConfig) Validate() error {
@@ -84,31 +97,64 @@ func (c GameConfig) Validate() error {
 
 type Game struct {
 	images           []ebiten.Image
+	exitButtonImage  *ebiten.Image
 	currImgIdx       int
 	windowPos        Point
 	lastLeftClickPos Point
+	screenDimension  Dimension
 }
 
 func (g *Game) Update() error {
+	// get current cursor position
+	cursorX, cursorY := ebiten.CursorPosition()
+	cursorPos := Point{X: cursorX, Y: cursorY}
+	// update animation
 	g.currImgIdx = (g.currImgIdx + 1) % 200
-	g.updateWindowPosOnLeftClick()
+	// check whether user click the exit button
+	g.handleExitIfNecessary(cursorPos)
+	// update window position
+	g.updateWindowPosOnLeftClick(cursorPos)
 
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	// set window position according to calculation
+	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
 	// draw character image
 	imgIdx := (g.currImgIdx / 10) % len(g.images)
 	screen.DrawImage(&g.images[imgIdx], nil)
-	// set window position according to calculation
-	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
+	// draw exit button, we want to position it on top right
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
+	screen.DrawImage(g.exitButtonImage, opt)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-func (g *Game) updateWindowPosOnLeftClick() {
+func (g *Game) handleExitIfNecessary(cursorPos Point) {
+	// check if the cursor position is above exit button
+	isAboveButton := g.isCursorAboveExitButton(cursorPos)
+	if isAboveButton && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		// when the cursor is above exit button & user click it, this means user
+		// want to exit the program, so we do it.
+		os.Exit(0)
+	}
+}
+
+func (g *Game) isCursorAboveExitButton(cursorPos Point) bool {
+	btnDimension := Dimension{
+		Width:  g.exitButtonImage.Bounds().Dx(),
+		Height: g.exitButtonImage.Bounds().Dy(),
+	}
+	return cursorPos.X >= (g.screenDimension.Width-btnDimension.Width) &&
+		cursorPos.X <= g.screenDimension.Width &&
+		cursorPos.Y >= 0 && cursorPos.Y <= btnDimension.Height
+}
+
+func (g *Game) updateWindowPosOnLeftClick(cursorPos Point) {
 	// if left mouse button is clicked, this means user is currently trying to drag
 	// the cat, this means we need to make the window position follow this with some
 	// adjustments.
@@ -117,20 +163,18 @@ func (g *Game) updateWindowPosOnLeftClick() {
 		// get current position of the mouse cursor, in ebitengine we could only get
 		// cursor position relative to the game window, so later we need some adjustment
 		// to this cursor position since what we need is actual mouse cursor position
-		cursorX, cursorY := ebiten.CursorPosition()
 		isJustPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 		if isJustPressed {
 			// record the position of left click when it is just happening, this is useful
 			// for our window position final adjustment
-			g.lastLeftClickPos.X = cursorX
-			g.lastLeftClickPos.Y = cursorY
+			g.lastLeftClickPos = cursorPos
 		}
 
 		// get actual position of cursor
 		curWindowX, curWindowY := ebiten.WindowPosition()
 		actualCursorPos := Point{
-			X: curWindowX + cursorX,
-			Y: curWindowY + cursorY,
+			X: curWindowX + cursorPos.X,
+			Y: curWindowY + cursorPos.Y,
 		}
 
 		// update window position to follow actual cursor position with some adjustment
