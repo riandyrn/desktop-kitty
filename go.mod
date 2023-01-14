@@ -2,7 +2,10 @@ module github.com/riandyrn/desktop-cat-go
 
 go 1.19
 
-require github.com/hajimehoshi/ebiten/v2 v2.4.15
+require (
+	github.com/hajimehoshi/ebiten/v2 v2.4.15
+	gopkg.in/validator.v2 v2.0.1
+)
 
 require (
 	github.com/ebitengine/purego v0.0.0-20220905075623-aeed57cda744 // indirect
