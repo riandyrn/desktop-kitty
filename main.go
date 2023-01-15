@@ -98,7 +98,7 @@ func (c GameConfig) Validate() error {
 type Game struct {
 	images           []ebiten.Image
 	exitButtonImage  *ebiten.Image
-	currImgIdx       int
+	displayImgTick   int
 	windowPos        Point
 	lastLeftClickPos Point
 	screenDimension  Dimension
@@ -108,8 +108,8 @@ func (g *Game) Update() error {
 	// get current cursor position
 	cursorX, cursorY := ebiten.CursorPosition()
 	cursorPos := Point{X: cursorX, Y: cursorY}
-	// update animation
-	g.currImgIdx = (g.currImgIdx + 1) % 800
+	// increment display image tick
+	g.incrDisplayImgTick()
 	// check whether user click the exit button
 	g.handleExitIfNecessary(cursorPos)
 	// update window position
@@ -122,8 +122,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// set window position according to calculation
 	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
 	// draw character image
-	imgIdx := (g.currImgIdx / 40) % len(g.images)
-	screen.DrawImage(&g.images[imgIdx], nil)
+	screen.DrawImage(g.getDisplayImage(), nil)
 	// draw exit button, we want to position it on top right
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
@@ -132,6 +131,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
+}
+
+func (g *Game) incrDisplayImgTick() {
+	g.displayImgTick = (g.displayImgTick + 1) % 800
+}
+
+func (g *Game) getDisplayImage() *ebiten.Image {
+	imgIdx := (g.displayImgTick / 40) % len(g.images)
+	return &g.images[imgIdx]
 }
 
 func (g *Game) handleExitIfNecessary(cursorPos Point) {
