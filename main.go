@@ -32,6 +32,7 @@ func main() {
 					"assets/idle3.png",
 					"assets/idle4.png",
 				},
+				Priority: 1,
 			},
 			{
 				Name: "zzz",
@@ -41,6 +42,7 @@ func main() {
 					"assets/zzz3.png",
 					"assets/zzz4.png",
 				},
+				Priority: 3,
 			},
 		},
 		ExitButtonImagePath: "assets/close.png",
@@ -72,11 +74,11 @@ func NewGame(cfg GameConfig) (*Game, error) {
 	// load actions
 	actions := make([]Action, 0, len(cfg.ActionSources))
 	for _, actSrc := range cfg.ActionSources {
-		act, err := actSrc.ToAction()
+		acts, err := actSrc.ToActions()
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert source into action due: %w", err)
 		}
-		actions = append(actions, *act)
+		actions = append(actions, acts...)
 	}
 	// adjust window properties
 	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
@@ -227,22 +229,26 @@ type Action struct {
 type ActionSource struct {
 	Name       string
 	ImagePaths []string
+	Priority   int
 }
 
-func (src ActionSource) ToAction() (*Action, error) {
-	images := make([]ebiten.Image, 0, len(src.ImagePaths))
-	for _, imgPath := range src.ImagePaths {
-		img, _, err := ebitenutil.NewImageFromFile(imgPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load image due: %v", err)
+func (src ActionSource) ToActions() ([]Action, error) {
+	var acts []Action
+	for i := 0; i < src.Priority; i++ {
+		images := make([]ebiten.Image, 0, len(src.ImagePaths))
+		for _, imgPath := range src.ImagePaths {
+			img, _, err := ebitenutil.NewImageFromFile(imgPath)
+			if err != nil {
+				return nil, fmt.Errorf("unable to load image due: %v", err)
+			}
+			images = append(images, *img)
 		}
-		images = append(images, *img)
+		acts = append(acts, Action{
+			Name:   src.Name,
+			Images: images,
+		})
 	}
-	act := &Action{
-		Name:   src.Name,
-		Images: images,
-	}
-	return act, nil
+	return acts, nil
 }
 
 type Point struct {
