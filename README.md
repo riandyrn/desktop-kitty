@@ -1,6 +1,6 @@
 # Desktop Kitty
 
-![Kitty](idling.gif)
+![Kitty](docs/idling.gif)
 
 Desktop kitty that keeps you company.
 
@@ -28,4 +28,4 @@ Upon successful execution the kitty will appears on your desktop just like shown
 
 ## Demo
 
-![Demo](demo.gif)
+![Demo](docs/demo.gif)
