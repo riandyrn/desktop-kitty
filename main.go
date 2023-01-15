@@ -21,11 +21,25 @@ const (
 func main() {
 	// initialize game
 	game, err := NewGame(GameConfig{
-		ImagePaths: []string{
-			"assets/idle1.png",
-			"assets/idle2.png",
-			"assets/idle3.png",
-			"assets/idle4.png",
+		ActionSources: []ActionSource{
+			{
+				Name: "idle",
+				ImagePaths: []string{
+					"assets/idle1.png",
+					"assets/idle2.png",
+					"assets/idle3.png",
+					"assets/idle4.png",
+				},
+			},
+			{
+				Name: "zzz",
+				ImagePaths: []string{
+					"assets/zzz1.png",
+					"assets/zzz2.png",
+					"assets/zzz3.png",
+					"assets/zzz4.png",
+				},
+			},
 		},
 		ExitButtonImagePath: "assets/close.png",
 		ScreenDimension: Dimension{
@@ -48,19 +62,19 @@ func NewGame(cfg GameConfig) (*Game, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %+v", cfg)
 	}
-	// load images
-	images := make([]ebiten.Image, 0, len(cfg.ImagePaths))
-	for _, imgPath := range cfg.ImagePaths {
-		img, _, err := ebitenutil.NewImageFromFile(imgPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load image due: %v", err)
-		}
-		images = append(images, *img)
-	}
 	// load exit button image
 	exitButtonImage, _, err := ebitenutil.NewImageFromFile(cfg.ExitButtonImagePath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load exit button image due: %w", err)
+	}
+	// load actions
+	actions := make([]Action, 0, len(cfg.ActionSources))
+	for _, actSrc := range cfg.ActionSources {
+		act, err := actSrc.ToAction()
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert source into action due: %w", err)
+		}
+		actions = append(actions, *act)
 	}
 	// adjust window properties
 	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
@@ -76,7 +90,8 @@ func NewGame(cfg GameConfig) (*Game, error) {
 
 	// initialize game
 	g := &Game{
-		images:          images,
+		actions:         actions,
+		currAction:      &actions[0],
 		exitButtonImage: exitButtonImage,
 		windowPos:       windowPos,
 		screenDimension: cfg.ScreenDimension,
@@ -86,9 +101,9 @@ func NewGame(cfg GameConfig) (*Game, error) {
 }
 
 type GameConfig struct {
-	ImagePaths          []string  `validate:"min=1"`
-	ExitButtonImagePath string    `validate:"min=1"`
-	ScreenDimension     Dimension `validate:"nonzero"`
+	ActionSources       []ActionSource `validate:"min=1"`
+	ExitButtonImagePath string         `validate:"min=1"`
+	ScreenDimension     Dimension      `validate:"nonzero"`
 }
 
 func (c GameConfig) Validate() error {
@@ -96,7 +111,8 @@ func (c GameConfig) Validate() error {
 }
 
 type Game struct {
-	images           []ebiten.Image
+	actions          []Action
+	currAction       *Action
 	exitButtonImage  *ebiten.Image
 	displayImgTick   int
 	windowPos        Point
@@ -138,8 +154,8 @@ func (g *Game) incrDisplayImgTick() {
 }
 
 func (g *Game) getDisplayImage() *ebiten.Image {
-	imgIdx := (g.displayImgTick / 40) % len(g.images)
-	return &g.images[imgIdx]
+	imgIdx := (g.displayImgTick / 40) % len(g.currAction.Images)
+	return &g.currAction.Images[imgIdx]
 }
 
 func (g *Game) handleExitIfNecessary(cursorPos Point) {
@@ -189,6 +205,32 @@ func (g *Game) updateWindowPosOnLeftClick(cursorPos Point) {
 		g.windowPos.X = actualCursorPos.X - g.lastLeftClickPos.X
 		g.windowPos.Y = actualCursorPos.Y - g.lastLeftClickPos.Y
 	}
+}
+
+type Action struct {
+	Name   string
+	Images []ebiten.Image
+}
+
+type ActionSource struct {
+	Name       string
+	ImagePaths []string
+}
+
+func (src ActionSource) ToAction() (*Action, error) {
+	images := make([]ebiten.Image, 0, len(src.ImagePaths))
+	for _, imgPath := range src.ImagePaths {
+		img, _, err := ebitenutil.NewImageFromFile(imgPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to load image due: %v", err)
+		}
+		images = append(images, *img)
+	}
+	act := &Action{
+		Name:   src.Name,
+		Images: images,
+	}
+	return act, nil
 }
 
 type Point struct {
