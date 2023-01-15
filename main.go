@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	_ "image/png"
 
@@ -91,7 +93,7 @@ func NewGame(cfg GameConfig) (*Game, error) {
 	// initialize game
 	g := &Game{
 		actions:         actions,
-		currAction:      &actions[0],
+		currActionIdx:   0,
 		exitButtonImage: exitButtonImage,
 		windowPos:       windowPos,
 		screenDimension: cfg.ScreenDimension,
@@ -112,7 +114,7 @@ func (c GameConfig) Validate() error {
 
 type Game struct {
 	actions          []Action
-	currAction       *Action
+	currActionIdx    int
 	exitButtonImage  *ebiten.Image
 	displayImgTick   int
 	windowPos        Point
@@ -141,7 +143,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(g.getDisplayImage(), nil)
 	// draw exit button, we want to position it on top right
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
+	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 16)
 	screen.DrawImage(g.exitButtonImage, opt)
 }
 
@@ -150,12 +152,22 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (g *Game) incrDisplayImgTick() {
-	g.displayImgTick = (g.displayImgTick + 1) % 800
+	g.displayImgTick++
 }
 
 func (g *Game) getDisplayImage() *ebiten.Image {
-	imgIdx := (g.displayImgTick / 40) % len(g.currAction.Images)
-	return &g.currAction.Images[imgIdx]
+	currAction := g.actions[g.currActionIdx]
+	imgIdx := (g.displayImgTick / 40) % len(currAction.Images)
+	animLoopCount := (g.displayImgTick / 40) / len(currAction.Images)
+	defer func() {
+		// if animation loop has finished, determine next action
+		if imgIdx == 0 && animLoopCount > 0 {
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
+			g.currActionIdx = r.Intn(len(g.actions))
+			g.displayImgTick = 0
+		}
+	}()
+	return &currAction.Images[imgIdx]
 }
 
 func (g *Game) handleExitIfNecessary(cursorPos Point) {
@@ -175,7 +187,7 @@ func (g *Game) isCursorAboveExitButton(cursorPos Point) bool {
 	}
 	return cursorPos.X >= (g.screenDimension.Width-btnDimension.Width) &&
 		cursorPos.X <= g.screenDimension.Width &&
-		cursorPos.Y >= 0 && cursorPos.Y <= btnDimension.Height
+		cursorPos.Y >= 16 && cursorPos.Y <= btnDimension.Height+16
 }
 
 func (g *Game) updateWindowPosOnLeftClick(cursorPos Point) {
