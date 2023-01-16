@@ -10,7 +10,8 @@ Intended as fun project to spark kids & teens interest in Go programming.
 
 ## Features
 
-- Kitty animation (currently she has only 1 animation)
+- Kitty animation: idle, sleeping, walk to left, walk to right
+- Make kitty stop sleeping or walking when user left click into it
 - Draggable kitty
 - Exit button
 
