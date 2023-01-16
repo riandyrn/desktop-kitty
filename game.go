@@ -74,7 +74,7 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		exitButtonImage:    exitButtonImage,
 		windowPos:          windowPos,
 		screenDimension:    cfg.ScreenDimension,
-		currentAction:      actionIdle,
+		currentAction:      actionWalkingRight,
 	}
 
 	return g, nil
@@ -93,6 +93,7 @@ type Game struct {
 
 	lastLeftClickPos Point
 	displayImage     *ebiten.Image
+	lastImgIdx       int
 }
 
 func (g *Game) Update() error {
@@ -135,9 +136,19 @@ func (g *Game) updateDisplayImage() {
 	g.displayImgTick++
 
 	// update display image
-	imgIdx := (g.displayImgTick / 40) % len(g.currentAction.Images)
-	animLoopCount := (g.displayImgTick / 40) / len(g.currentAction.Images)
+	imgIdx := (g.displayImgTick / 30) % len(g.currentAction.Images)
+	animLoopCount := (g.displayImgTick / 30) / len(g.currentAction.Images)
 	g.displayImage = &g.currentAction.Images[imgIdx]
+
+	// move window position if necessary
+	if g.lastImgIdx != imgIdx {
+		switch g.currentAction.Type {
+		case ActionTypeWalkingLeft:
+			g.windowPos.X -= 4
+		case ActionTypeWalkingRight:
+			g.windowPos.X += 4
+		}
+	}
 
 	// if animation loop has finished, determine next action
 	if imgIdx == 0 && animLoopCount > 0 {
@@ -159,11 +170,12 @@ func (g *Game) updateDisplayImage() {
 				g.updateCurrentAction(ActionTypeIdle)
 			}
 		case ActionTypeWalkingLeft, ActionTypeWalkingRight:
-			if animLoopCount > 10 {
+			if animLoopCount > 2 {
 				g.updateCurrentAction(ActionTypeIdle)
 			}
 		}
 	}
+	g.lastImgIdx = imgIdx
 }
 
 func (g *Game) updateCurrentAction(actType ActionType) {
