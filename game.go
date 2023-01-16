@@ -117,10 +117,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// set window position according to calculation
 	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
 	// draw character image
-	screen.DrawImage(g.displayImage, nil)
-	// draw exit button, we want to position it on top right
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 16)
+	opt.GeoM.Translate(0, 16)
+	screen.DrawImage(g.displayImage, opt)
+	// draw exit button, we want to position it on top right
+	opt = &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
 	screen.DrawImage(g.exitButtonImage, opt)
 }
 
@@ -201,7 +203,7 @@ func (g *Game) isCursorAboveExitButton(cursorPos Point) bool {
 	}
 	return cursorPos.X >= (g.screenDimension.Width-btnDimension.Width) &&
 		cursorPos.X <= g.screenDimension.Width &&
-		cursorPos.Y >= 16 && cursorPos.Y <= btnDimension.Height+16
+		cursorPos.Y >= 0 && cursorPos.Y <= btnDimension.Height
 }
 
 func (g *Game) updateWindowPosOnLeftClick(cursorPos Point) {
