@@ -16,26 +16,20 @@ const (
 func main() {
 	// initialize game
 	game, err := NewGame(GameConfig{
-		ActionSources: []ActionSource{
-			{
-				Name: "idle",
-				ImagePaths: []string{
-					"assets/idle1.png",
-					"assets/idle2.png",
-					"assets/idle3.png",
-					"assets/idle4.png",
-				},
-				Priority: 1,
+		ActionIdleSource: &ActionSource{
+			ImagePaths: []string{
+				"assets/idle1.png",
+				"assets/idle2.png",
+				"assets/idle3.png",
+				"assets/idle4.png",
 			},
-			{
-				Name: "zzz",
-				ImagePaths: []string{
-					"assets/zzz1.png",
-					"assets/zzz2.png",
-					"assets/zzz3.png",
-					"assets/zzz4.png",
-				},
-				Priority: 3,
+		},
+		ActionSleepSource: &ActionSource{
+			ImagePaths: []string{
+				"assets/zzz1.png",
+				"assets/zzz2.png",
+				"assets/zzz3.png",
+				"assets/zzz4.png",
 			},
 		},
 		ExitButtonImagePath: "assets/close.png",

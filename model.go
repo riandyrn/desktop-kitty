@@ -7,34 +7,32 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
+type ActionType string
+
+const (
+	ActionTypeIdle  ActionType = "idle"
+	ActionTypeSleep ActionType = "sleep"
+)
+
 type Action struct {
-	Name   string
+	Type   ActionType
 	Images []ebiten.Image
 }
 
 type ActionSource struct {
-	Name       string
 	ImagePaths []string
-	Priority   int
 }
 
-func (src ActionSource) ToActions() ([]Action, error) {
-	var acts []Action
-	for i := 0; i < src.Priority; i++ {
-		images := make([]ebiten.Image, 0, len(src.ImagePaths))
-		for _, imgPath := range src.ImagePaths {
-			img, _, err := ebitenutil.NewImageFromFile(imgPath)
-			if err != nil {
-				return nil, fmt.Errorf("unable to load image due: %v", err)
-			}
-			images = append(images, *img)
+func (src ActionSource) ToAction(actType ActionType) (*Action, error) {
+	images := make([]ebiten.Image, 0, len(src.ImagePaths))
+	for _, imgPath := range src.ImagePaths {
+		img, _, err := ebitenutil.NewImageFromFile(imgPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to load image due: %v", err)
 		}
-		acts = append(acts, Action{
-			Name:   src.Name,
-			Images: images,
-		})
+		images = append(images, *img)
 	}
-	return acts, nil
+	return &Action{Type: actType, Images: images}, nil
 }
 
 type Point struct {

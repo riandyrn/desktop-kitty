@@ -2,15 +2,24 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"gopkg.in/validator.v2"
 )
+
+type GameConfig struct {
+	ActionIdleSource    *ActionSource `validate:"nonnil"`
+	ActionSleepSource   *ActionSource `validate:"nonnil"`
+	ExitButtonImagePath string        `validate:"min=1"`
+	ScreenDimension     Dimension     `validate:"nonzero"`
+}
+
+func (c GameConfig) Validate() error {
+	return validator.Validate(c)
+}
 
 func NewGame(cfg GameConfig) (*Game, error) {
 	// validate config
@@ -24,13 +33,13 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		return nil, fmt.Errorf("unable to load exit button image due: %w", err)
 	}
 	// load actions
-	actions := make([]Action, 0, len(cfg.ActionSources))
-	for _, actSrc := range cfg.ActionSources {
-		acts, err := actSrc.ToActions()
-		if err != nil {
-			return nil, fmt.Errorf("unable to convert source into action due: %w", err)
-		}
-		actions = append(actions, acts...)
+	actionIdle, err := cfg.ActionIdleSource.ToAction(ActionTypeIdle)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load idle action due: %w", err)
+	}
+	actionSleep, err := cfg.ActionSleepSource.ToAction(ActionTypeSleep)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load sleep action due: %w", err)
 	}
 	// adjust window properties
 	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
@@ -46,34 +55,27 @@ func NewGame(cfg GameConfig) (*Game, error) {
 
 	// initialize game
 	g := &Game{
-		actions:         actions,
-		currActionIdx:   0,
+		actionIdle:      actionIdle,
+		actionSleep:     actionSleep,
 		exitButtonImage: exitButtonImage,
 		windowPos:       windowPos,
 		screenDimension: cfg.ScreenDimension,
+		currentAction:   actionIdle,
 	}
 
 	return g, nil
 }
 
-type GameConfig struct {
-	ActionSources       []ActionSource `validate:"min=1"`
-	ExitButtonImagePath string         `validate:"min=1"`
-	ScreenDimension     Dimension      `validate:"nonzero"`
-}
-
-func (c GameConfig) Validate() error {
-	return validator.Validate(c)
-}
-
 type Game struct {
-	actions          []Action
-	currActionIdx    int
-	exitButtonImage  *ebiten.Image
-	displayImgTick   int
-	windowPos        Point
+	actionIdle      *Action
+	actionSleep     *Action
+	exitButtonImage *ebiten.Image
+	displayImgTick  int
+	windowPos       Point
+	screenDimension Dimension
+	currentAction   *Action
+
 	lastLeftClickPos Point
-	screenDimension  Dimension
 }
 
 func (g *Game) Update() error {
@@ -82,6 +84,10 @@ func (g *Game) Update() error {
 	cursorPos := Point{X: cursorX, Y: cursorY}
 	// increment display image tick
 	g.incrDisplayImgTick()
+	// wake up kitty if necessary, we put this here because we want
+	// to quickly catch the click event, if we put this in Draw() it
+	// will be more slower
+	g.handleWakeUpKittyIfNecessary()
 	// check whether user click the exit button
 	g.handleExitIfNecessary(cursorPos)
 	// update window position
@@ -110,18 +116,35 @@ func (g *Game) incrDisplayImgTick() {
 }
 
 func (g *Game) getDisplayImage() *ebiten.Image {
-	currAction := g.actions[g.currActionIdx]
-	imgIdx := (g.displayImgTick / 40) % len(currAction.Images)
-	animLoopCount := (g.displayImgTick / 40) / len(currAction.Images)
+	imgIdx := (g.displayImgTick / 40) % len(g.currentAction.Images)
+	animLoopCount := (g.displayImgTick / 40) / len(g.currentAction.Images)
 	defer func() {
 		// if animation loop has finished, determine next action
 		if imgIdx == 0 && animLoopCount > 0 {
-			r := rand.New(rand.NewSource(time.Now().UnixNano()))
-			g.currActionIdx = r.Intn(len(g.actions))
-			g.displayImgTick = 0
+			switch g.currentAction.Type {
+			case ActionTypeIdle:
+				if animLoopCount > 5 {
+					g.setCurrentAction(g.actionSleep)
+				}
+			case ActionTypeSleep:
+				if animLoopCount > 15 {
+					g.setCurrentAction(g.actionIdle)
+				}
+			}
 		}
 	}()
-	return &currAction.Images[imgIdx]
+	return &g.currentAction.Images[imgIdx]
+}
+
+func (g *Game) setCurrentAction(act *Action) {
+	g.currentAction = act
+	g.displayImgTick = 0
+}
+
+func (g *Game) handleWakeUpKittyIfNecessary() {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		g.setCurrentAction(g.actionIdle)
+	}
 }
 
 func (g *Game) handleExitIfNecessary(cursorPos Point) {
