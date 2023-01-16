@@ -76,6 +76,7 @@ type Game struct {
 	currentAction   *Action
 
 	lastLeftClickPos Point
+	displayImage     *ebiten.Image
 }
 
 func (g *Game) Update() error {
@@ -83,7 +84,7 @@ func (g *Game) Update() error {
 	cursorX, cursorY := ebiten.CursorPosition()
 	cursorPos := Point{X: cursorX, Y: cursorY}
 	// increment display image tick
-	g.incrDisplayImgTick()
+	g.updateDisplayImage()
 	// wake up kitty if necessary, we put this here because we want
 	// to quickly catch the click event, if we put this in Draw() it
 	// will be more slower
@@ -100,7 +101,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// set window position according to calculation
 	ebiten.SetWindowPosition(g.windowPos.X, g.windowPos.Y)
 	// draw character image
-	screen.DrawImage(g.getDisplayImage(), nil)
+	screen.DrawImage(g.displayImage, nil)
 	// draw exit button, we want to position it on top right
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 16)
@@ -111,39 +112,38 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-func (g *Game) incrDisplayImgTick() {
+func (g *Game) updateDisplayImage() {
+	// increment image tick
 	g.displayImgTick++
-}
 
-func (g *Game) getDisplayImage() *ebiten.Image {
+	// update display image
 	imgIdx := (g.displayImgTick / 40) % len(g.currentAction.Images)
 	animLoopCount := (g.displayImgTick / 40) / len(g.currentAction.Images)
-	defer func() {
-		// if animation loop has finished, determine next action
-		if imgIdx == 0 && animLoopCount > 0 {
-			switch g.currentAction.Type {
-			case ActionTypeIdle:
-				if animLoopCount > 5 {
-					g.setCurrentAction(g.actionSleep)
-				}
-			case ActionTypeSleep:
-				if animLoopCount > 15 {
-					g.setCurrentAction(g.actionIdle)
-				}
+	g.displayImage = &g.currentAction.Images[imgIdx]
+
+	// if animation loop has finished, determine next action
+	if imgIdx == 0 && animLoopCount > 0 {
+		switch g.currentAction.Type {
+		case ActionTypeIdle:
+			if animLoopCount > 5 {
+				g.updateCurrentAction(g.actionSleep)
+			}
+		case ActionTypeSleep:
+			if animLoopCount > 15 {
+				g.updateCurrentAction(g.actionIdle)
 			}
 		}
-	}()
-	return &g.currentAction.Images[imgIdx]
+	}
 }
 
-func (g *Game) setCurrentAction(act *Action) {
+func (g *Game) updateCurrentAction(act *Action) {
 	g.currentAction = act
 	g.displayImgTick = 0
 }
 
 func (g *Game) handleWakeUpKittyIfNecessary() {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		g.setCurrentAction(g.actionIdle)
+		g.updateCurrentAction(g.actionIdle)
 	}
 }
 
