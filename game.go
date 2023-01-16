@@ -18,7 +18,7 @@ type GameConfig struct {
 	ActionSourceWalkingLeft  *ActionSource `validate:"nonnil"`
 	ActionSourceWalkingRight *ActionSource `validate:"nonnil"`
 	ExitButtonImagePath      string        `validate:"min=1"`
-	ScreenDimension          Dimension     `validate:"nonzero"`
+	WindowDimension          Dimension     `validate:"nonzero"`
 }
 
 func (c GameConfig) Validate() error {
@@ -54,15 +54,15 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		return nil, fmt.Errorf("umable to load walking right action due: %w", err)
 	}
 	// adjust window properties
-	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
+	ebiten.SetWindowSize(cfg.WindowDimension.Width, cfg.WindowDimension.Height)
 	ebiten.SetWindowDecorated(false)
 	ebiten.SetScreenTransparent(true)
 	ebiten.SetWindowFloating(true)
 	// determine window start position, we start on center of the main display
 	maxScreenWidth, maxScreenHeight := ebiten.ScreenSizeInFullscreen()
 	windowPos := Point{
-		X: (maxScreenWidth / 2) - cfg.ScreenDimension.Width,
-		Y: (maxScreenHeight / 2) - cfg.ScreenDimension.Height,
+		X: (maxScreenWidth / 2) - cfg.WindowDimension.Width,
+		Y: (maxScreenHeight / 2) - cfg.WindowDimension.Height,
 	}
 
 	// initialize game
@@ -73,8 +73,9 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		actionWalkingRight: actionWalkingRight,
 		exitButtonImage:    exitButtonImage,
 		windowPos:          windowPos,
-		screenDimension:    cfg.ScreenDimension,
-		currentAction:      actionWalkingRight,
+		windowDimension:    cfg.WindowDimension,
+		screenDimension:    Dimension{Width: maxScreenWidth, Height: maxScreenHeight},
+		currentAction:      actionIdle,
 	}
 
 	return g, nil
@@ -88,6 +89,7 @@ type Game struct {
 	exitButtonImage    *ebiten.Image
 	displayImgTick     int
 	windowPos          Point
+	windowDimension    Dimension
 	screenDimension    Dimension
 	currentAction      *Action
 
@@ -123,12 +125,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(g.displayImage, opt)
 	// draw exit button, we want to position it on top right
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(float64(g.screenDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
+	opt.GeoM.Translate(float64(g.windowDimension.Width-g.exitButtonImage.Bounds().Dx()), 0)
 	screen.DrawImage(g.exitButtonImage, opt)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return screenWidth, screenHeight
+	return g.windowDimension.Width, g.windowDimension.Height
 }
 
 func (g *Game) updateDisplayImage() {
@@ -144,9 +146,19 @@ func (g *Game) updateDisplayImage() {
 	if g.lastImgIdx != imgIdx {
 		switch g.currentAction.Type {
 		case ActionTypeWalkingLeft:
-			g.windowPos.X -= 4
+			projX := g.windowPos.X - walkSpeed
+			if projX >= 0 {
+				g.windowPos.X -= walkSpeed
+			} else {
+				g.updateCurrentAction(ActionTypeIdle)
+			}
 		case ActionTypeWalkingRight:
-			g.windowPos.X += 4
+			projX := g.windowPos.X + g.windowDimension.Width + walkSpeed
+			if projX <= g.screenDimension.Width {
+				g.windowPos.X += walkSpeed
+			} else {
+				g.updateCurrentAction(ActionTypeIdle)
+			}
 		}
 	}
 
@@ -213,8 +225,8 @@ func (g *Game) isCursorAboveExitButton(cursorPos Point) bool {
 		Width:  g.exitButtonImage.Bounds().Dx(),
 		Height: g.exitButtonImage.Bounds().Dy(),
 	}
-	return cursorPos.X >= (g.screenDimension.Width-btnDimension.Width) &&
-		cursorPos.X <= g.screenDimension.Width &&
+	return cursorPos.X >= (g.windowDimension.Width-btnDimension.Width) &&
+		cursorPos.X <= g.windowDimension.Width &&
 		cursorPos.Y >= 0 && cursorPos.Y <= btnDimension.Height
 }
 

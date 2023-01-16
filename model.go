@@ -46,3 +46,5 @@ type Dimension struct {
 	Width  int
 	Height int
 }
+
+const walkSpeed = 4

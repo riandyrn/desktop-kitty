@@ -49,7 +49,7 @@ func main() {
 			},
 		},
 		ExitButtonImagePath: "assets/close.png",
-		ScreenDimension: Dimension{
+		WindowDimension: Dimension{
 			Width:  screenWidth,
 			Height: screenHeight,
 		},
