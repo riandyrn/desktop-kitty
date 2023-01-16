@@ -10,8 +10,10 @@ import (
 type ActionType string
 
 const (
-	ActionTypeIdle  ActionType = "idle"
-	ActionTypeSleep ActionType = "sleep"
+	ActionTypeIdle         ActionType = "idle"
+	ActionTypeSleep        ActionType = "sleep"
+	ActionTypeWalkingLeft  ActionType = "walking_left"
+	ActionTypeWalkingRight ActionType = "walking_right"
 )
 
 type Action struct {

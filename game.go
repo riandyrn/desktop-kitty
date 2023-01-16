@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -11,10 +13,12 @@ import (
 )
 
 type GameConfig struct {
-	ActionIdleSource    *ActionSource `validate:"nonnil"`
-	ActionSleepSource   *ActionSource `validate:"nonnil"`
-	ExitButtonImagePath string        `validate:"min=1"`
-	ScreenDimension     Dimension     `validate:"nonzero"`
+	ActionSourceIdle         *ActionSource `validate:"nonnil"`
+	ActionSourceSleep        *ActionSource `validate:"nonnil"`
+	ActionSourceWalkingLeft  *ActionSource `validate:"nonnil"`
+	ActionSourceWalkingRight *ActionSource `validate:"nonnil"`
+	ExitButtonImagePath      string        `validate:"min=1"`
+	ScreenDimension          Dimension     `validate:"nonzero"`
 }
 
 func (c GameConfig) Validate() error {
@@ -33,13 +37,21 @@ func NewGame(cfg GameConfig) (*Game, error) {
 		return nil, fmt.Errorf("unable to load exit button image due: %w", err)
 	}
 	// load actions
-	actionIdle, err := cfg.ActionIdleSource.ToAction(ActionTypeIdle)
+	actionIdle, err := cfg.ActionSourceIdle.ToAction(ActionTypeIdle)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load idle action due: %w", err)
 	}
-	actionSleep, err := cfg.ActionSleepSource.ToAction(ActionTypeSleep)
+	actionSleep, err := cfg.ActionSourceSleep.ToAction(ActionTypeSleep)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load sleep action due: %w", err)
+	}
+	actionWalkingLeft, err := cfg.ActionSourceWalkingLeft.ToAction(ActionTypeWalkingLeft)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load walking left action due: %w", err)
+	}
+	actionWalkingRight, err := cfg.ActionSourceWalkingRight.ToAction(ActionTypeWalkingRight)
+	if err != nil {
+		return nil, fmt.Errorf("umable to load walking right action due: %w", err)
 	}
 	// adjust window properties
 	ebiten.SetWindowSize(cfg.ScreenDimension.Width, cfg.ScreenDimension.Height)
@@ -55,25 +67,29 @@ func NewGame(cfg GameConfig) (*Game, error) {
 
 	// initialize game
 	g := &Game{
-		actionIdle:      actionIdle,
-		actionSleep:     actionSleep,
-		exitButtonImage: exitButtonImage,
-		windowPos:       windowPos,
-		screenDimension: cfg.ScreenDimension,
-		currentAction:   actionIdle,
+		actionIdle:         actionIdle,
+		actionSleep:        actionSleep,
+		actionWalkingLeft:  actionWalkingLeft,
+		actionWalkingRight: actionWalkingRight,
+		exitButtonImage:    exitButtonImage,
+		windowPos:          windowPos,
+		screenDimension:    cfg.ScreenDimension,
+		currentAction:      actionIdle,
 	}
 
 	return g, nil
 }
 
 type Game struct {
-	actionIdle      *Action
-	actionSleep     *Action
-	exitButtonImage *ebiten.Image
-	displayImgTick  int
-	windowPos       Point
-	screenDimension Dimension
-	currentAction   *Action
+	actionIdle         *Action
+	actionSleep        *Action
+	actionWalkingLeft  *Action
+	actionWalkingRight *Action
+	exitButtonImage    *ebiten.Image
+	displayImgTick     int
+	windowPos          Point
+	screenDimension    Dimension
+	currentAction      *Action
 
 	lastLeftClickPos Point
 	displayImage     *ebiten.Image
@@ -126,24 +142,45 @@ func (g *Game) updateDisplayImage() {
 		switch g.currentAction.Type {
 		case ActionTypeIdle:
 			if animLoopCount > 5 {
-				g.updateCurrentAction(g.actionSleep)
+				// determine next action: sleep, walking left, walking right
+				r := rand.New(rand.NewSource(time.Now().UnixNano()))
+				nextActionTypes := []ActionType{
+					ActionTypeSleep,
+					ActionTypeWalkingLeft,
+					ActionTypeWalkingRight,
+				}
+				nextActionType := nextActionTypes[r.Intn(len(nextActionTypes))]
+				g.updateCurrentAction(nextActionType)
 			}
 		case ActionTypeSleep:
 			if animLoopCount > 15 {
-				g.updateCurrentAction(g.actionIdle)
+				g.updateCurrentAction(ActionTypeIdle)
+			}
+		case ActionTypeWalkingLeft, ActionTypeWalkingRight:
+			if animLoopCount > 10 {
+				g.updateCurrentAction(ActionTypeIdle)
 			}
 		}
 	}
 }
 
-func (g *Game) updateCurrentAction(act *Action) {
+func (g *Game) updateCurrentAction(actType ActionType) {
+	act := g.actionIdle
+	switch actType {
+	case ActionTypeSleep:
+		act = g.actionSleep
+	case ActionTypeWalkingLeft:
+		act = g.actionWalkingLeft
+	case ActionTypeWalkingRight:
+		act = g.actionWalkingRight
+	}
 	g.currentAction = act
 	g.displayImgTick = 0
 }
 
 func (g *Game) handleWakeUpKittyIfNecessary() {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		g.updateCurrentAction(g.actionIdle)
+		g.updateCurrentAction(ActionTypeIdle)
 	}
 }
 
